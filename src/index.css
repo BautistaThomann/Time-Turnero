@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* Mismos tokens que turnero-front */
+@theme {
+  --color-time-primary: #FC6F20;
+  --color-time-secondary: #FEE8D0;
+  --color-time-accent: #323232;
+  --color-time-background: #F8FAFC;
+  --color-time-border: #E5E7EB;
+  /* Naranjas oscuros para texto (mejor contraste sobre fondo claro) */
+  --color-time-orange-text: #E85D0C;
+  --color-time-orange-dark: #B13F07;
+
+  --font-manrope: "Manrope", sans-serif;
+  --font-inter: "Inter", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-time-background);
+}

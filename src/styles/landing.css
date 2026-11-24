@@ -1,0 +1,128 @@
+/* ===== Animaciones de la landing de Time ===== */
+
+@keyframes floatY { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
+@keyframes blob {
+  0%,100% { border-radius: 44% 56% 62% 38% / 42% 46% 54% 58%; transform: rotate(0deg) scale(1) }
+  50% { border-radius: 58% 42% 38% 62% / 56% 38% 62% 44%; transform: rotate(8deg) scale(1.05) }
+}
+@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes popIn { 0% { opacity: 0; transform: translateY(16px) scale(.94) } 100% { opacity: 1; transform: none } }
+@keyframes slideIn { 0% { opacity: 0; transform: translateX(24px) } 100% { opacity: 1; transform: none } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(252,111,32,.55) } 100% { box-shadow: 0 0 0 14px rgba(252,111,32,0) } }
+@keyframes grow { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+@keyframes growX { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+@keyframes blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+@keyframes shake { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-2deg) } 75% { transform: rotate(2deg) } }
+@keyframes drawCheck { from { stroke-dashoffset: 30 } to { stroke-dashoffset: 0 } }
+@keyframes shine { 0% { left: -60% } 60%,100% { left: 130% } }
+@keyframes spinSlow { to { transform: rotate(360deg) } }
+@keyframes veilIn { from { opacity: 0 } to { opacity: 1 } }
+
+.float { animation: floatY 5s ease-in-out infinite }
+.float2 { animation: floatY 6.5s ease-in-out infinite .8s }
+.blob { animation: blob 14s ease-in-out infinite }
+.marquee { display: flex; width: max-content; animation: marquee 40s linear infinite }
+.marquee:hover { animation-play-state: paused }
+.pop { animation: popIn .5s cubic-bezier(.2,.8,.2,1) both }
+.slide { animation: slideIn .45s cubic-bezier(.2,.8,.2,1) both }
+.pulse-ring { animation: pulse-ring 1.4s ease-out infinite }
+.bar { transform-origin: bottom; animation: grow .9s cubic-bezier(.2,.8,.2,1) both }
+.barx { transform-origin: left; animation: growX .9s cubic-bezier(.2,.8,.2,1) both }
+.caret { animation: blink 1s step-end infinite }
+.shake { animation: shake .6s ease-in-out infinite }
+.check path { stroke-dasharray: 30; animation: drawCheck .6s ease-out .15s both }
+.spin { animation: spinSlow 40s linear infinite }
+
+.lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
+.lift:hover { transform: translateY(-6px); box-shadow: 0 24px 48px -24px rgba(50,50,50,.35); border-color: #FC6F20 }
+.btn { transition: transform .15s ease, box-shadow .2s ease, background-color .2s ease }
+.btn:hover { transform: translateY(-2px) }
+.btn:active { transform: translateY(0) scale(.98) }
+.shiny { position: relative; overflow: hidden }
+.shiny::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: shine 3.2s ease-in-out infinite;
+}
+.chip { transition: background-color .2s ease, border-color .2s ease, transform .15s ease }
+.chip:hover { border-color: #FC6F20; transform: translateY(-1px) }
+.range { width: 100%; accent-color: #FC6F20; height: 28px; cursor: pointer }
+
+summary { cursor: pointer; list-style: none }
+summary::-webkit-details-marker { display: none }
+details[open] .chev { transform: rotate(180deg) }
+
+/* Aparecer al hacer scroll (navegadores que lo soportan) */
+@supports (animation-timeline: view()) {
+  .reveal { animation: popIn linear both; animation-timeline: view(); animation-range: entry 0% entry 60% }
+}
+
+/* ===== Indicador "Deslizá" ===== */
+:root { --nav-h: 73px }
+@media (min-width: 640px) { :root { --nav-h: 89px } }
+section[id] { scroll-margin-top: var(--nav-h) }
+
+/* Cada sección ocupa al menos una pantalla: contenido centrado y el "deslizá" abajo */
+.screen { min-height: calc(100svh - var(--nav-h)); display: flex; flex-direction: column }
+.screen-body { margin-top: auto; margin-bottom: auto; width: 100% }
+.screen > .cue-wrap { padding-top: 40px }
+@media (max-height: 820px) {
+  .screen > .cue-wrap { padding-top: 24px }
+  .cue { gap: 6px; padding-top: 6px; padding-bottom: 6px }
+  .cue .mouse { width: 22px; height: 34px }
+}
+.cue {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 10px;
+  text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: #4B5563; padding: 10px 18px; border-radius: 16px; transition: color .2s ease, transform .2s ease;
+}
+.cue:hover { color: #B13F07; transform: translateY(2px) }
+.cue-dark { color: #D1D5DB }
+.cue-dark:hover { color: #FFFFFF }
+.cue .mouse { width: 26px; height: 40px; border: 2px solid currentColor; border-radius: 14px; position: relative; box-sizing: border-box; display: block }
+.cue .dot { position: absolute; left: 50%; top: 7px; width: 4px; height: 8px; margin-left: -2px; border-radius: 4px; background: #FC6F20; animation: cueDot 1.6s ease-in-out infinite }
+.cue .cchev { animation: cueChev 1.6s ease-in-out infinite }
+@keyframes cueDot { 0% { opacity: 0; transform: translateY(0) } 30% { opacity: 1 } 100% { opacity: 0; transform: translateY(14px) } }
+@keyframes cueChev { 0%,100% { transform: translateY(0); opacity: .45 } 50% { transform: translateY(6px); opacity: 1 } }
+
+/* ===== Pipo ===== */
+.intro-veil {
+  position: fixed; inset: 0; z-index: 45; border: 0; padding: 0; margin: 0;
+  background: rgba(50,50,50,.1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  cursor: pointer; animation: veilIn .5s ease both;
+}
+.pipo svg { display: block; overflow: visible }
+.pipo .pb { animation: pBob 2.4s ease-in-out infinite }
+.pipo .ant { transform-origin: 60px 26px; animation: pSway 1.8s ease-in-out infinite alternate }
+.pipo .eyes { transform-origin: 60px 56px; animation: pBlink 4.2s infinite }
+.pipo .wl { transform-origin: 26px 82px; animation: pWigL 2.4s ease-in-out infinite }
+.pipo .wr { transform-origin: 94px 82px; animation: pWigR 2.4s ease-in-out infinite }
+.pipo .head { transform-origin: 60px 100px }
+.pose-fly .wl { animation: pFlapL .16s ease-in-out infinite alternate }
+.pose-fly .wr { animation: pFlapR .16s ease-in-out infinite alternate }
+.pose-fly .pb { animation: pBob .32s ease-in-out infinite }
+.pose-wave .wr { animation: pWave .45s ease-in-out infinite alternate }
+.pose-point .wr { animation: pPoint 1.2s ease-in-out infinite alternate }
+.pose-party .pb { animation: pHop .42s ease-in-out infinite alternate }
+.pose-party .wl { animation: pFlapL .21s ease-in-out infinite alternate }
+.pose-party .wr { animation: pFlapR .21s ease-in-out infinite alternate }
+.pose-think .head { animation: pTilt 1.6s ease-in-out infinite alternate }
+.pose-think .wr { animation: none; transform: rotate(-150deg) }
+@keyframes pBob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@keyframes pHop { from { transform: translateY(0) } to { transform: translateY(-16px) } }
+@keyframes pSway { from { transform: rotate(-10deg) } to { transform: rotate(10deg) } }
+@keyframes pBlink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
+@keyframes pWigL { 0%,100% { transform: rotate(0) } 50% { transform: rotate(9deg) } }
+@keyframes pWigR { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-9deg) } }
+@keyframes pFlapL { from { transform: rotate(5deg) } to { transform: rotate(80deg) } }
+@keyframes pFlapR { from { transform: rotate(-5deg) } to { transform: rotate(-80deg) } }
+@keyframes pWave { from { transform: rotate(-100deg) } to { transform: rotate(-145deg) } }
+@keyframes pPoint { from { transform: rotate(-68deg) } to { transform: rotate(-82deg) } }
+@keyframes pTilt { from { transform: rotate(-7deg) } to { transform: rotate(7deg) } }
+.pipo-btn { pointer-events: auto; border: 0; background: transparent; padding: 0; cursor: pointer; width: 110px; height: 128px; display: block }
+.pipo-btn:focus-visible { outline: 3px solid #FC6F20; outline-offset: 4px; border-radius: 24px }
+
+/* Respeta a quien prefiere menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important }
+}
