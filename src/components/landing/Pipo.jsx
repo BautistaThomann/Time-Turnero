@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 /*
   Pipo, la mascota de Time.
-  - Al entrar se presenta arriba de la tarjeta de reserva, con el fondo desenfocado.
+  - Al entrar ya está parado arriba de la tarjeta de reserva, saludando con su globito.
   - Al hacer scroll vuela y se posa arriba del elemento que está en pantalla
     (los elementos se marcan con id="pipo-...").
   - Cambia de pose y de mensaje según lo que hace el usuario.
@@ -22,6 +22,10 @@ const PERCHES = [
   { id: 'pipo-faq', ax: 0.9 },
   { id: 'pipo-cta', ax: 0.86 },
 ]
+
+// Posición cuando está asomado: medio cuerpo afuera de la pantalla
+const peekX = (edge, vw) => (edge === 'r' ? vw - 58 : -52)
+const peekY = (vh) => Math.round(vh * 0.56)
 
 const POKES = [
   '¡Ja! Me hacés cosquillas.',
@@ -90,32 +94,13 @@ export function PipoSvg({ pose = 'idle', size = 110 }) {
 const burbuja =
   'pop absolute w-[220px] sm:w-60 border-2 border-time-primary bg-white px-4 py-3 font-manrope text-[15px] leading-[1.35] font-bold text-time-accent shadow-[0_16px_30px_-14px_rgba(50,50,50,.4)]'
 
-function IntroCard({ onStart }) {
-  return (
-    <>
-      <p className="m-0 font-manrope text-2xl font-extrabold text-time-accent">¡Hola! Soy Pipo</p>
-      <p className="mt-2 text-base leading-normal text-gray-600">
-        El ayudante de Time. Te acompaño a ver cómo tus clientes pueden reservar solos.
-      </p>
-      <button
-        type="button"
-        onClick={onStart}
-        className="btn shiny mt-4 cursor-pointer rounded-[14px] border-0 bg-time-primary px-[30px] py-[13px] text-base font-bold text-time-accent"
-      >
-        ¡Vamos!
-      </button>
-      <p className="mt-2.5 text-[13px] text-[#5B6472]">o deslizá para abajo</p>
-    </>
-  )
-}
-
 export default function Pipo({ booked, before, tab, horas }) {
   const boxRef = useRef(null)
   const [ready, setReady] = useState(false)
-  const [intro, setIntro] = useState(true)
+  const [intro, setIntro] = useState(false)
   const [introMode, setIntroMode] = useState('side')
-  const [pos, setPos] = useState({ perch: null, hover: false, right: true, side: false })
-  const [flying, setFlying] = useState(true)
+  const [pos, setPos] = useState({ perch: null, hover: false, right: true, side: false, mode: 'perch', edge: 'r' })
+  const [flying, setFlying] = useState(false)
   const [poked, setPoked] = useState(0)
   // En celular el globito se muestra unos segundos y se esconde para no tapar contenido
   const [quiet, setQuiet] = useState(false)
@@ -129,10 +114,49 @@ export default function Pipo({ booked, before, tab, horas }) {
   const introTop = useRef(null)
   const raf = useRef(null)
 
+  // 'intro' | 'perch' (explicando arriba de una tarjeta) | 'leaving' (yéndose volando) | 'peek' (asomado en el borde)
+  const mode = useRef('perch')
+  const first = useRef(true)
+  const edge = useRef('r')
+  const last = useRef({ x: 0, y: 0 })
+  const peekTimer = useRef()
+
   const endIntro = useCallback(() => {
     if (!live.current.intro) return
+    // Termina la presentación parado en la tarjeta de reserva
+    mode.current = 'perch'
     setIntro(false)
     setPos((p) => ({ ...p, perch: null }))
+  }, [])
+
+  // Sale volando por el costado que tiene más cerca y vuelve asomándose por ese borde
+  const leave = useCallback(() => {
+    const el = boxRef.current
+    if (!el) return
+    const vw = window.innerWidth
+    const { x, y } = last.current
+    edge.current = x + W / 2 > vw / 2 ? 'r' : 'l'
+    const outX = edge.current === 'r' ? vw + 40 : -W - 40
+    mode.current = 'leaving'
+    clearTimeout(flyTimer.current)
+    setFlying(true)
+    setPos((p) => ({ ...p, mode: 'away', edge: edge.current }))
+    el.style.transition = 'transform .6s cubic-bezier(.55,0,.8,.4)'
+    el.style.transform = `translate(${outX}px, ${Math.round(y - 90)}px)`
+
+    clearTimeout(peekTimer.current)
+    peekTimer.current = setTimeout(() => {
+      if (mode.current !== 'leaving') return
+      const py = peekY(window.innerHeight)
+      el.style.transition = 'none'
+      el.style.transform = `translate(${outX}px, ${py}px)`
+      el.getBoundingClientRect() // aplica la posición fuera de pantalla antes de animar
+      el.style.transition = 'transform .7s cubic-bezier(.22,1,.36,1)'
+      el.style.transform = `translate(${peekX(edge.current, window.innerWidth)}px, ${py}px)`
+      mode.current = 'peek'
+      setFlying(false)
+      setPos((p) => ({ ...p, perch: null, mode: 'peek', edge: edge.current }))
+    }, 650)
   }, [])
 
   const update = useCallback(() => {
@@ -165,29 +189,53 @@ export default function Pipo({ booked, before, tab, horas }) {
         ix = vw - W - 12
         iy = vh - H - 12
       }
+      last.current = { x: ix, y: iy }
       el.style.transition = 'none'
       el.style.transform = `translate(${Math.round(ix)}px, ${Math.round(iy)}px)`
       if (mode !== curMode) setIntroMode(mode)
       return
     }
 
-    el.style.transition = 'transform .85s cubic-bezier(.45,.05,.25,1)'
-
-    // Elige el elemento más cerca del centro de la pantalla
+    // Busca un elemento importante que esté ocupando el centro de la pantalla
     let best = null
     let bestD = Infinity
     for (const p of PERCHES) {
       const t = document.getElementById(p.id)
       if (!t) continue
       const r = t.getBoundingClientRect()
-      if (r.bottom < 140 || r.top > vh * 0.85) continue
+      if (r.top > vh * 0.7 || r.bottom < vh * 0.3) continue
       const d = Math.abs(r.top + Math.min(r.height, vh) / 2 - vh * 0.5)
       if (d < bestD) {
         bestD = d
         best = { p, r }
       }
     }
-    if (!best) return
+
+    // Ninguno: se va volando hacia su costado y después se asoma por el borde
+    if (!best) {
+      // Al abrir la página sin ninguna tarjeta a la vista (celular): arranca asomado a la derecha
+      if (first.current) {
+        first.current = false
+        edge.current = 'r'
+        mode.current = 'peek'
+        el.style.transition = 'none'
+        el.style.transform = `translate(${peekX('r', vw)}px, ${peekY(vh)}px)`
+        setPos((p) => ({ ...p, perch: null, mode: 'peek', edge: 'r' }))
+        return
+      }
+      if (mode.current === 'perch') leave()
+      else if (mode.current === 'peek') {
+        el.style.transform = `translate(${peekX(edge.current, vw)}px, ${peekY(vh)}px)`
+      }
+      return
+    }
+
+    clearTimeout(peekTimer.current)
+    mode.current = 'perch'
+    // La primera vez aparece directo en su lugar, sin volar desde la esquina
+    const wasFirst = first.current
+    el.style.transition = wasFirst ? 'none' : 'transform .85s cubic-bezier(.45,.05,.25,1)'
+    first.current = false
 
     const { p, r } = best
     const x = Math.max(8, Math.min(vw - W - 8, r.left + r.width * p.ax - W / 2))
@@ -197,14 +245,15 @@ export default function Pipo({ booked, before, tab, horas }) {
     const maxY = vh - H - 8
     if (y < minY) { y = minY; hover = true }
     if (y > maxY) { y = maxY; hover = true }
+    last.current = { x, y }
     el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`
 
     const right = x + W / 2 > vw / 2
     // En celular el globito va siempre al costado para no tapar los títulos
     const side = (!!p.side || vw < 640) && x > 230
-    if (p.id !== cur.perch || hover !== cur.hover || right !== cur.right || side !== cur.side) {
-      if (p.id !== cur.perch) {
-        setFlying(true)
+    if (p.id !== cur.perch || hover !== cur.hover || right !== cur.right || side !== cur.side || cur.mode !== 'perch') {
+      if (p.id !== cur.perch || cur.mode !== 'perch') {
+        setFlying(!wasFirst)
         clearTimeout(flyTimer.current)
         setQuiet(false)
         clearTimeout(quietTimer.current)
@@ -213,9 +262,9 @@ export default function Pipo({ booked, before, tab, horas }) {
           if (window.innerWidth < 640) quietTimer.current = setTimeout(() => setQuiet(true), 4000)
         }, 950)
       }
-      setPos({ perch: p.id, hover, right, side })
+      setPos({ perch: p.id, hover, right, side, mode: 'perch', edge: edge.current })
     }
-  }, [endIntro])
+  }, [endIntro, leave])
 
   // Aparece un momento después de cargar
   useEffect(() => {
@@ -241,6 +290,7 @@ export default function Pipo({ booked, before, tab, horas }) {
       clearTimeout(flyTimer.current)
       clearTimeout(pokeTimer.current)
       clearTimeout(quietTimer.current)
+      clearTimeout(peekTimer.current)
     }
   }, [update])
 
@@ -263,42 +313,19 @@ export default function Pipo({ booked, before, tab, horas }) {
   const info = mensaje(pos.perch, { booked, before, tab, horas })
   const poking = poked > 0
   const texto = poking ? POKES[(poked - 1) % POKES.length] : info.m
-  const pose = intro ? 'wave' : flying || pos.hover ? 'fly' : poking ? 'party' : info.pose
-  const showBubble = !intro && !flying && !pos.hover && !!pos.perch && (!quiet || poking)
+  const peeking = !intro && pos.mode === 'peek'
+  const pose = intro ? 'wave' : flying ? 'fly' : poking ? 'party' : peeking ? 'peek' : info.pose
+  const showBubble = !intro && !flying && pos.mode === 'perch' && !!pos.perch && (!quiet || poking)
+  const peekText = poking ? POKES[(poked - 1) % POKES.length] : null
 
   return (
     <>
-      {intro && <button type="button" className="intro-veil" onClick={endIntro} aria-label="Cerrar la presentación de Pipo" />}
 
       <div
         ref={boxRef}
         className="pointer-events-none fixed top-0 left-0 z-50"
         style={{ width: W, height: H, willChange: 'transform' }}
       >
-        {/* Presentación */}
-        {intro && introMode === 'side' && (
-          <div className="pointer-events-auto absolute top-1.5 right-[112px] w-[330px]">
-            <div role="dialog" aria-label="Pipo se presenta" className="pop rounded-[24px_4px_24px_24px] border-2 border-time-primary bg-white px-6 py-[22px] text-center shadow-[0_30px_60px_-24px_rgba(50,50,50,.55)]">
-              <IntroCard onStart={endIntro} />
-            </div>
-          </div>
-        )}
-        {intro && introMode === 'below' && (
-          <div className="pointer-events-auto absolute top-[134px] left-0 w-[300px]">
-            <div role="dialog" aria-label="Pipo se presenta" className="pop rounded-[4px_24px_24px_24px] border-2 border-time-primary bg-white px-[22px] py-5 text-center shadow-[0_30px_60px_-24px_rgba(50,50,50,.55)]">
-              <IntroCard onStart={endIntro} />
-            </div>
-          </div>
-        )}
-
-        {intro && introMode === 'above' && (
-          <div className="pointer-events-auto absolute right-0 bottom-[134px] w-[min(300px,calc(100vw-24px))]">
-            <div role="dialog" aria-label="Pipo se presenta" className="pop rounded-[24px_24px_4px_24px] border-2 border-time-primary bg-white px-[22px] py-5 text-center shadow-[0_30px_60px_-24px_rgba(50,50,50,.55)]">
-              <IntroCard onStart={endIntro} />
-            </div>
-          </div>
-        )}
-
         {/* Globitos de ayuda (key = texto, así la animación se repite al cambiar) */}
         {showBubble && pos.side && (
           <div key={texto} role="status" className={`${burbuja} right-[108px] bottom-2 rounded-[18px_18px_4px_18px]`}>
@@ -316,9 +343,22 @@ export default function Pipo({ booked, before, tab, horas }) {
           </div>
         )}
 
-        <button type="button" className="pipo-btn pop origin-bottom max-sm:scale-[.8]" onClick={poke} aria-label="Pipo, el ayudante de Time. Tocalo para un consejo.">
-          <PipoSvg pose={pose} />
-        </button>
+        {/* Asomado: si lo tocan, habla hacia adentro de la pantalla */}
+        {peeking && peekText && (
+          <div
+            key={peekText}
+            role="status"
+            className={`${burbuja} bottom-8 ${pos.edge === 'r' ? 'right-[100px] rounded-[18px_18px_4px_18px]' : 'left-[100px] rounded-[18px_18px_18px_4px]'}`}
+          >
+            {peekText}
+          </div>
+        )}
+
+        <div className={peeking ? `pipo-peek-${pos.edge}` : ''}>
+          <button type="button" className="pipo-btn pop origin-bottom max-sm:scale-[.8]" onClick={poke} aria-label="Pipo, el ayudante de Time. Tocalo para un consejo.">
+            <PipoSvg pose={pose} />
+          </button>
+        </div>
       </div>
     </>
   )
