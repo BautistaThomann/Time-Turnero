@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   // GitHub Pages publica el sitio en /Time-Turnero/ (el nombre del repo), no en la raíz
-  base: '/Time-Turnero/',
+  base: process.env.VERCEL ? '/' : '/Time-Turnero/',
 })
